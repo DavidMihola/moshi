@@ -15,10 +15,12 @@
  */
 package com.squareup.moshi.recipes;
 
+import com.squareup.moshi.FromJson;
 import com.squareup.moshi.JsonAdapter;
 import com.squareup.moshi.JsonReader;
 import com.squareup.moshi.JsonWriter;
 import com.squareup.moshi.Moshi;
+import com.squareup.moshi.ToJson;
 
 import java.io.IOException;
 
@@ -26,7 +28,7 @@ public final class CustomJsonAdapter {
 
     public void run() throws Exception {
         // for some reason our JSON has date and time as separate fields -
-        // we will use a custom JsonAdapter<Event> to clean that up during parsing
+        // we will clean that up during parsing
         String json = ""
                 + "{\n"
                 + "  \"title\": \"Blackjack tournament\",\n"
@@ -35,7 +37,8 @@ public final class CustomJsonAdapter {
                 + "}\n";
 
         Moshi moshi = new Moshi.Builder()
-                .add(Event.class, new EventAdapter())
+                .add(new EventJsonAdapter())
+                .add(new EventJson2Adapter())
                 .build();
         JsonAdapter<Event> jsonAdapter = moshi.adapter(Event.class);
 
@@ -46,55 +49,6 @@ public final class CustomJsonAdapter {
 
     public static void main(String[] args) throws Exception {
         new CustomJsonAdapter().run();
-    }
-
-    public static final class EventAdapter extends JsonAdapter<Event> {
-        @Override
-        public Event fromJson(JsonReader jsonReader) throws IOException {
-            String title = null;
-            String beginDate = null;
-            String beginTime = null;
-
-            jsonReader.beginObject();
-            while (jsonReader.hasNext()) {
-                String name = jsonReader.nextName();
-                if (name.equals("title")) {
-                    title = jsonReader.nextString();
-                } else if (name.equals("beginDate")) {
-                    beginDate = jsonReader.nextString();
-                } else if (name.equals("beginTime")) {
-                    beginTime = jsonReader.nextString();
-                } else {
-                    jsonReader.skipValue();
-                }
-            }
-            jsonReader.endObject();
-
-            final String beginDateAndTime = (beginDate != null) && (beginTime != null) ?
-                    beginDate + " " + beginTime : null;
-
-            return new Event(title, beginDateAndTime);
-        }
-
-        @Override
-        public void toJson(JsonWriter jsonWriter, Event event) throws IOException {
-            jsonWriter.beginObject();
-
-            if (event.title != null) {
-                jsonWriter.name("title");
-                jsonWriter.value(event.title);
-            }
-
-            if (event.beginDateAndTime != null) {
-                jsonWriter.name("beginDate");
-                jsonWriter.value(event.beginDateAndTime.substring(0, 8));
-
-                jsonWriter.name("beginTime");
-                jsonWriter.value(event.beginDateAndTime.substring(9, 14));
-            }
-
-            jsonWriter.endObject();
-        }
     }
 
     public static final class Event {
@@ -112,6 +66,59 @@ public final class CustomJsonAdapter {
                     "title='" + title + '\'' +
                     ", beginDateAndTime=" + beginDateAndTime +
                     '}';
+        }
+    }
+
+    static class EventJson {
+        String title;
+        String beginDate;
+        String beginTime;
+    }
+
+    static class EventJson2 {
+        String title;
+        String beginDate;
+        String beginTime;
+    }
+
+    static class EventJsonAdapter {
+
+        @ToJson
+        EventJson eventToJson(Event event) {
+            EventJson json = new EventJson();
+            json.title = event.title;
+            json.beginDate = event.beginDateAndTime.substring(0, 8);
+            json.beginTime = event.beginDateAndTime.substring(9, 14);
+            return json;
+        }
+
+        @FromJson
+        Event eventFromJson(EventJson json) {
+            return new Event(
+                    json.title,
+                    json.beginDate + " " + json.beginTime
+            );
+        }
+    }
+
+    static class EventJson2Adapter {
+
+        @ToJson
+        EventJson2 eventToJson(EventJson event) {
+            EventJson2 json = new EventJson2();
+            json.title = event.title;
+            json.beginDate = event.beginDate;
+            json.beginTime = event.beginTime;
+            return json;
+        }
+
+        @FromJson
+        EventJson eventFromJson(EventJson2 event) {
+            EventJson json = new EventJson();
+            json.title = event.title;
+            json.beginDate = event.beginDate;
+            json.beginTime = event.beginTime;
+            return json;
         }
     }
 }
